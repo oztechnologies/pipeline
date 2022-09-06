@@ -1,0 +1,101 @@
+on:
+  workflow_call:
+    inputs:
+      SERVICE_NAME:
+        required: true
+        type: string
+      SERVICE_PORT:
+        required: true
+        type: string
+    secrets:
+      AWS_DEV_ACCOUNT_ID:
+        required: true
+      AWS_PIPELINE_ACCESS_KEY_ID:
+        required: true
+      AWS_PIPELINE_SECRET_ACCESS_KEY:
+        required: true
+      PACKAGE_USERNAME:
+        required: true
+      PACKAGE_TOKEN:
+        required: true
+
+env:
+  BUILD_SHA: ${{ github.sha }}
+  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_PIPELINE_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_PIPELINE_SECRET_ACCESS_KEY }}
+  AWS_REGION: us-east-1
+  ROLE_DURATION_SECONDS: 1200
+  AWS_DEFAULT_OUTPUT: json
+  AWS_DEPLOYMENT_ROLE: pipeline
+  ORGANIZATION: lineup
+  SERVICE_NAME: ${{inputs.SERVICE_NAME}}
+  SERVICE_PORT: ${{inputs.SERVICE_PORT}}
+  
+
+
+jobs:
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Set DEV environment variables
+        if: github.ref == 'refs/heads/master'
+        env:
+          JAVA_OPTS: "-Xmx300m -Xms250m -XX:MaxMetaspaceSize=200m -XX:MetaspaceSize=130m -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+PrintGCTimeStamps  -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=1m -Xloggc:/var/log/containers/gc-%t.log -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/containers"
+        run: |
+          echo "::set-env name=STAGE::dev"
+          echo "::set-env name=DOCKER_BUILD_TARGET::debug"
+          echo "::set-env name=EKS_CLUSTER_NAME::dev-lineup-k8s-cluster"
+          echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_DEV_ACCOUNT_ID }}"
+      - name: ☕ Set up Java
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-version: 11
+      - name: 🐘 Stop Gradle Daemon(s)
+        uses: eskatos/gradle-command-action@v1
+        env:
+          GRADLE_OPTS: -Xmx2000m -XX:MaxPermSize=256m -Dorg.gradle.jvmargs='-Xmx2048m -XX:MaxPermSize=256m'
+        with:
+          arguments: --stop
+          gradle-version: 7.4.2
+      - name: 🐘 Build Repository With Gradle
+        env:
+          GRADLE_OPTS: -Xmx2000m -XX:MaxPermSize=256m -Dorg.gradle.jvmargs='-Xmx2048m -XX:MaxPermSize=256m'
+          GITHUB_USERNAME: ${{ secrets.PACKAGE_USERNAME }}
+          GITHUB_TOKEN: ${{ secrets.PACKAGE_TOKEN }}
+        run: |
+          echo $SERVICE_NAME
+          echo 'service name ' ${{inputs.SERVICE_NAME}}
+          ./gradlew $SERVICE_NAME:clean
+          ./gradlew $SERVICE_NAME:build
+      - name: 🔑 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ format('arn:aws:iam::{0}:role/{1}', env.AWS_ACCOUNT_ID,env.AWS_DEPLOYMENT_ROLE) }}
+          role-duration-seconds: ${{ env.ROLE_DURATION_SECONDS }}
+      - name: 🔓 Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      #      - name: 🏗️ Prune Images
+      #        run: |
+      #          docker system prune -a -f
+      - name: 🏗️ Build, Tag, and Push Images to Amazon ECR
+        env:
+          IMAGE_TAG: latest
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          DOCKER_BUILD_TARGET: ${{ env.DOCKER_BUILD_TARGET }}
+          ECR_TARGET: ${{ format('{0}.dkr.ecr.us-east-1.amazonaws.com/{1}-{2}/{3}:latest',env.AWS_ACCOUNT_ID, env.STAGE, env.ORGANIZATION, env.SERVICE_NAME ) }}
+        run: |
+          docker buildx build --platform linux/amd64 -t $ECR_TARGET --push $SERVICE_NAME
+  #      - name: 🔒 Logout of Amazon ECR
+  #        run: |
+  #          docker system prune -a -f
+  #          docker logout $REGISTRY

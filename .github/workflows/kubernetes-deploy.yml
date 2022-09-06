@@ -1,0 +1,80 @@
+on:
+  workflow_call:
+    inputs:
+      SERVICE_NAME:
+        required: true
+        type: string
+      SERVICE_PORT:
+        required: true
+        type: string
+    secrets:
+      AWS_DEV_ACCOUNT_ID:
+        required: true
+      DEV_KUBE_CONFIG_DATA:
+        required: true
+      AWS_PIPELINE_ACCESS_KEY_ID:
+        required: true
+      AWS_PIPELINE_SECRET_ACCESS_KEY:
+        required: true
+      PACKAGE_USERNAME:
+        required: true
+      PACKAGE_TOKEN:
+        required: true
+
+env:
+  BUILD_SHA: ${{ github.sha }}
+  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_PIPELINE_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_PIPELINE_SECRET_ACCESS_KEY }}
+  AWS_REGION: us-east-1
+  ROLE_DURATION_SECONDS: 1200
+  AWS_DEFAULT_OUTPUT: json
+  AWS_DEPLOYMENT_ROLE: pipeline
+  ORGANIZATION: lineup
+  SERVICE_NAME: ${{inputs.SERVICE_NAME}}
+  SERVICE_PORT: ${{inputs.SERVICE_PORT}}
+
+jobs:
+  deploy_services:
+    name: Deploy micro-service to EKS
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set DEV environment variables
+        if: github.ref == 'refs/heads/master'
+        env:
+          JAVA_OPTS: "-Xmx300m -Xms250m -XX:MaxMetaspaceSize=200m -XX:MetaspaceSize=130m -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+PrintGCTimeStamps  -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=1m -Xloggc:/var/log/containers/gc-%t.log -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/containers"
+        run: |
+          echo "::set-env name=STAGE::dev"
+          echo "::set-env name=DOCKER_BUILD_TARGET::debug"
+          echo "::set-env name=EKS_CLUSTER_NAME::dev-lineup-k8s-cluster"
+          echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_DEV_ACCOUNT_ID }}"
+          echo "::set-env name=EKS_KUBE_CONFIG_DATA::${{ secrets.DEV_KUBE_CONFIG_DATA }}"
+      - name: 🔑 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ format('arn:aws:iam::{0}:role/{1}', env.AWS_ACCOUNT_ID,env.AWS_DEPLOYMENT_ROLE) }}
+          role-duration-seconds: ${{ env.ROLE_DURATION_SECONDS }}
+      - name: 🔓 Login to Amazon ECR
+        id: login-ecr-aws
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: 📄 Inject environment variables into kubernetes manifest
+        uses: nowactions/envsubst@v1
+        with:
+          input: ${{ format('./{0}/kubernetes.yml', env.SERVICE_NAME) }}
+          output: ${{ format('./{0}/kubernetes.deployment.yml', env.SERVICE_NAME) }}
+        env:
+          LOGROTATE_IMAGE: ${{ format('{0}/lineup-logrotate:latest', steps.login-ecr-aws.outputs.registry) }}
+          FLUENT_BIT_IMAGE: ${{ format('{0}/lineup-fluent-bit:latest', steps.login-ecr-aws.outputs.registry) }}
+          IMAGE_TAG: ${{ format('{0}/{1}-{2}/{3}:latest', steps.login-ecr-aws.outputs.registry, env.STAGE, env.ORGANIZATION, env.SERVICE_NAME ) }}
+      - name: 🏢 Deploy application load balancer to EKS
+        uses: Consensys/kubernetes-action@master
+        env:
+          KUBE_CONFIG_DATA: ${{ env.EKS_KUBE_CONFIG_DATA }}
+        with:
+          args: ${{ format('apply -f ./{0}/kubernetes.deployment.yml', env.SERVICE_NAME) }}
