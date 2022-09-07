@@ -28,7 +28,7 @@ env:
   ROLE_DURATION_SECONDS: 1200
   AWS_DEFAULT_OUTPUT: json
   AWS_DEPLOYMENT_ROLE: pipeline
-  ORGANIZATION: lineup
+  ORGANIZATION: league-engine
   SERVICE_NAME: ${{inputs.SERVICE_NAME}}
   SERVICE_PORT: ${{inputs.SERVICE_PORT}}
   
@@ -49,7 +49,7 @@ jobs:
         run: |
           echo "::set-env name=STAGE::dev"
           echo "::set-env name=DOCKER_BUILD_TARGET::debug"
-          echo "::set-env name=EKS_CLUSTER_NAME::dev-lineup-k8s-cluster"
+          echo "::set-env name=EKS_CLUSTER_NAME::dev-league-engine-k8s-cluster"
           echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_DEV_ACCOUNT_ID }}"
       - name: ☕ Set up Java
         uses: actions/setup-java@v2
