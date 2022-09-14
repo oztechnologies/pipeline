@@ -49,7 +49,7 @@ jobs:
         run: |
           echo "::set-env name=STAGE::dev"
           echo "::set-env name=DOCKER_BUILD_TARGET::debug"
-          echo "::set-env name=EKS_CLUSTER_NAME::dev-lineup-k8s-cluster"
+          echo "::set-env name=EKS_CLUSTER_NAME::dev-league-engine-k8s-cluster"
           echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_DEV_ACCOUNT_ID }}"
           echo "::set-env name=EKS_KUBE_CONFIG_DATA::${{ secrets.DEV_KUBE_CONFIG_DATA }}"
       - name: 🔑 Configure AWS Credentials
@@ -69,8 +69,8 @@ jobs:
           input: ${{ format('./{0}/kubernetes.yml', env.SERVICE_NAME) }}
           output: ${{ format('./{0}/kubernetes.deployment.yml', env.SERVICE_NAME) }}
         env:
-          LOGROTATE_IMAGE: ${{ format('{0}/lineup-logrotate:latest', steps.login-ecr-aws.outputs.registry) }}
-          FLUENT_BIT_IMAGE: ${{ format('{0}/lineup-fluent-bit:latest', steps.login-ecr-aws.outputs.registry) }}
+          LOGROTATE_IMAGE: ${{ format('{0}/league-engine-logrotate:latest', steps.login-ecr-aws.outputs.registry) }}
+          FLUENT_BIT_IMAGE: ${{ format('{0}/league-engine-fluent-bit:latest', steps.login-ecr-aws.outputs.registry) }}
           IMAGE_TAG: ${{ format('{0}/{1}-{2}/{3}:latest', steps.login-ecr-aws.outputs.registry, env.STAGE, env.ORGANIZATION, env.SERVICE_NAME ) }}
       - name: 🏢 Deploy application load balancer to EKS
         uses: Consensys/kubernetes-action@master
