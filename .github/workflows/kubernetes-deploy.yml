@@ -69,8 +69,8 @@ jobs:
           input: ${{ format('./{0}/kubernetes.yml', env.SERVICE_NAME) }}
           output: ${{ format('./{0}/kubernetes.deployment.yml', env.SERVICE_NAME) }}
         env:
-          LOGROTATE_IMAGE: ${{ format('{0}/league-engine-logrotate:latest', steps.login-ecr-aws.outputs.registry) }}
-          FLUENT_BIT_IMAGE: ${{ format('{0}/league-engine-fluent-bit:latest', steps.login-ecr-aws.outputs.registry) }}
+          LOGROTATE_IMAGE: ${{ format('{0}/{1}-{2}/league-engine-logrotate:latest', steps.login-ecr-aws.outputs.registry,  env.STAGE, env.ORGANIZATION) }}
+          FLUENT_BIT_IMAGE: ${{ format('{0}/{1}-{2}/league-engine-fluent-bit:latest', steps.login-ecr-aws.outputs.registry,  env.STAGE, env.ORGANIZATION) }}
           IMAGE_TAG: ${{ format('{0}/{1}-{2}/{3}:latest', steps.login-ecr-aws.outputs.registry, env.STAGE, env.ORGANIZATION, env.SERVICE_NAME ) }}
       - name: 🏢 Deploy application load balancer to EKS
         uses: Consensys/kubernetes-action@master
