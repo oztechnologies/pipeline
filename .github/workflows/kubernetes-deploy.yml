@@ -10,7 +10,11 @@ on:
     secrets:
       AWS_DEV_ACCOUNT_ID:
         required: true
+      AWS_PROD_ACCOUNT_ID:
+        required: true
       DEV_KUBE_CONFIG_DATA:
+        required: true
+      PROD_KUBE_CONFIG_DATA:
         required: true
       AWS_PIPELINE_ACCESS_KEY_ID:
         required: true
@@ -52,6 +56,16 @@ jobs:
           echo "::set-env name=EKS_CLUSTER_NAME::dev-lastplay-k8s-cluster"
           echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_DEV_ACCOUNT_ID }}"
           echo "::set-env name=EKS_KUBE_CONFIG_DATA::${{ secrets.DEV_KUBE_CONFIG_DATA }}"
+      - name: Set PROD environment variables
+        if: github.ref == 'refs/heads/prod'
+        env:
+          JAVA_OPTS: "-Xmx300m -Xms250m -XX:MaxMetaspaceSize=200m -XX:MetaspaceSize=130m -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+PrintGCTimeStamps  -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=1m -Xloggc:/var/log/containers/gc-%t.log -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/containers"
+        run: |
+          echo "::set-env name=STAGE::prod"
+          echo "::set-env name=DOCKER_BUILD_TARGET::debug"
+          echo "::set-env name=EKS_CLUSTER_NAME::prod-lastplay-k8s-cluster"
+          echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_PROD_ACCOUNT_ID }}"
+          echo "::set-env name=EKS_KUBE_CONFIG_DATA::${{ secrets.PROD_KUBE_CONFIG_DATA }}"
       - name: 🔑 Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
