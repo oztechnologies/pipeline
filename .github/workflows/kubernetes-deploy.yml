@@ -7,6 +7,12 @@ on:
       SERVICE_PORT:
         required: true
         type: string
+      DEV_MIN_INSTANCES:
+        required: true
+        type: string
+      PROD_MIN_INSTANCES:
+        required: true
+        type: string
     secrets:
       AWS_DEV_ACCOUNT_ID:
         required: true
@@ -56,6 +62,7 @@ jobs:
           echo "::set-env name=EKS_CLUSTER_NAME::dev-lastplay-k8s-cluster"
           echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_DEV_ACCOUNT_ID }}"
           echo "::set-env name=EKS_KUBE_CONFIG_DATA::${{ secrets.DEV_KUBE_CONFIG_DATA }}"
+          echo "::set-env name=MIN_INSTANCES::${{ secrets.DEV_MIN_INSTANCES }}"
       - name: Set PROD environment variables
         if: github.ref == 'refs/heads/prod'
         env:
@@ -66,6 +73,7 @@ jobs:
           echo "::set-env name=EKS_CLUSTER_NAME::prod-lastplay-k8s-cluster"
           echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_PROD_ACCOUNT_ID }}"
           echo "::set-env name=EKS_KUBE_CONFIG_DATA::${{ secrets.PROD_KUBE_CONFIG_DATA }}"
+          echo "::set-env name=MIN_INSTANCES::${{ secrets.PROD_MIN_INSTANCES }}"
       - name: 🔑 Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
