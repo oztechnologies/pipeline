@@ -43,6 +43,8 @@ env:
   ORGANIZATION: lastplay
   SERVICE_NAME: ${{inputs.SERVICE_NAME}}
   SERVICE_PORT: ${{inputs.SERVICE_PORT}}
+  DEV_MIN_INSTANCES: ${{inputs.DEV_MIN_INSTANCES}}
+  PROD_MIN_INSTANCES: ${{inputs.PROD_MIN_INSTANCES}}
 
 jobs:
   deploy_services:
