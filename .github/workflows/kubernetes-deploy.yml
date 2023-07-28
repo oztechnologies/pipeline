@@ -111,7 +111,7 @@ jobs:
           FLUENT_BIT_IMAGE: ${{ format('{0}/{1}-{2}/league-engine-fluent-bit:latest', steps.login-ecr-aws.outputs.registry,  env.STAGE, env.ORGANIZATION) }}
           IMAGE_TAG: ${{ format('{0}/{1}-{2}/{3}:latest', steps.login-ecr-aws.outputs.registry, env.STAGE, env.ORGANIZATION, env.SERVICE_NAME ) }}
       - name: 🏢 Deploy application load balancer to EKS
-        uses: Consensys/kubernetes-action@master
+        uses: kodermax/kubectl-aws-eks@master
         env:
           KUBE_CONFIG_DATA: ${{ env.EKS_KUBE_CONFIG_DATA }}
         with:
