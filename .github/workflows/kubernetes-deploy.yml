@@ -53,6 +53,7 @@ env:
   AWS_DEFAULT_OUTPUT: json
   AWS_DEPLOYMENT_ROLE: pipeline
   ORGANIZATION: wetraders
+  NAME_SPACE: wetraders
   SERVICE_NAME: ${{inputs.SERVICE_NAME}}
   SERVICE_PORT: ${{inputs.SERVICE_PORT}}
 
