@@ -66,6 +66,7 @@ jobs:
         uses: actions/setup-java@v4.2.0
         with:
           distribution: 'corretto'
+          java-version: 11
           check-latest: false
       - name: 🐘 Stop Gradle Daemon(s)
         uses: eskatos/gradle-command-action@v1
