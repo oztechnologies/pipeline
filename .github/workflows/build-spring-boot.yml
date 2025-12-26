@@ -78,7 +78,7 @@ jobs:
       #     gradle-version: 7.4.2
       - name: 🐘 Build Repository With Gradle
         env:
-          GRADLE_OPTS: -Xmx2000m -XX:MaxPermSize=256m -Dorg.gradle.jvmargs='-Xmx2048m -XX:MaxPermSize=256m'
+          GRADLE_OPTS: -Xmx2000m -XX:MaxMetaspaceSize=512m -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError"
           GITHUB_USERNAME: ${{ secrets.PACKAGE_USERNAME }}
           GITHUB_TOKEN: ${{ secrets.PACKAGE_TOKEN }}
         run: |
