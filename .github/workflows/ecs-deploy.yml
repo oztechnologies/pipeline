@@ -1,0 +1,117 @@
+on:
+  workflow_call:
+    inputs:
+      SERVICE_NAME:
+        required: true
+        type: string
+      SERVICE_PORT:
+        required: true
+        type: string
+      DEV_MIN_INSTANCES:
+        required: true
+        type: string
+      PROD_MIN_INSTANCES:
+        required: true
+        type: string
+      DEV_CPU_REQUEST:
+        required: true
+        type: string
+      PROD_CPU_REQUEST:
+        required: true
+        type: string
+      DEV_CPU_LIMIT:
+        required: true
+        type: string
+      PROD_CPU_LIMIT:
+        required: true
+        type: string
+    secrets:
+      AWS_DEV_ACCOUNT_ID:
+        required: true
+      AWS_PROD_ACCOUNT_ID:
+        required: true
+      AWS_PIPELINE_ACCESS_KEY_ID:
+        required: true
+      AWS_PIPELINE_SECRET_ACCESS_KEY:
+        required: true
+      PACKAGE_USERNAME:
+        required: true
+      PACKAGE_TOKEN:
+        required: true
+
+env:
+  BUILD_SHA: ${{ github.sha }}
+  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_PIPELINE_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_PIPELINE_SECRET_ACCESS_KEY }}
+  AWS_REGION: us-east-1
+  ROLE_DURATION_SECONDS: 1200
+  AWS_DEFAULT_OUTPUT: json
+  AWS_DEPLOYMENT_ROLE: pipeline
+  ORGANIZATION: lastplay
+  SERVICE_NAME: ${{inputs.SERVICE_NAME}}
+  SERVICE_PORT: ${{inputs.SERVICE_PORT}}
+
+jobs:
+  deploy_services:
+    name: Deploy micro-service to ECS
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set DEV environment variables
+        if: github.ref == 'refs/heads/master'
+        run: |
+          echo "::set-env name=STAGE::dev"
+          echo "::set-env name=DOCKER_BUILD_TARGET::debug"
+          echo "::set-env name=ECS_CLUSTER_NAME::dev-lastplay-ecs-cluster"
+          echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_DEV_ACCOUNT_ID }}"
+          echo "::set-env name=DESIRED_COUNT::${{inputs.DEV_MIN_INSTANCES}}"
+          echo "::set-env name=TASK_CPU::${{inputs.DEV_CPU_REQUEST}}"
+          echo "::set-env name=TASK_MEMORY::${{inputs.DEV_CPU_LIMIT}}"
+      - name: Set PROD environment variables
+        if: github.ref == 'refs/heads/prod'
+        run: |
+          echo "::set-env name=STAGE::prod"
+          echo "::set-env name=DOCKER_BUILD_TARGET::debug"
+          echo "::set-env name=ECS_CLUSTER_NAME::prod-lastplay-ecs-cluster"
+          echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_PROD_ACCOUNT_ID }}"
+          echo "::set-env name=DESIRED_COUNT::${{inputs.PROD_MIN_INSTANCES}}"
+          echo "::set-env name=TASK_CPU::${{inputs.PROD_CPU_REQUEST}}"
+          echo "::set-env name=TASK_MEMORY::${{inputs.PROD_CPU_LIMIT}}"
+      - name: 🔑 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ format('arn:aws:iam::{0}:role/{1}', env.AWS_ACCOUNT_ID,env.AWS_DEPLOYMENT_ROLE) }}
+          role-duration-seconds: ${{ env.ROLE_DURATION_SECONDS }}
+      - name: 🔓 Login to Amazon ECR
+        id: login-ecr-aws
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: 📄 Inject environment variables into ECS task definition
+        uses: nowactions/envsubst@v1
+        with:
+          input: ${{ format('./{0}/taskdef.json', env.SERVICE_NAME) }}
+          output: ${{ format('./{0}/taskdef.rendered.json', env.SERVICE_NAME) }}
+        env:
+          LOGROTATE_IMAGE: ${{ format('{0}/{1}-{2}/league-engine-logrotate:latest', steps.login-ecr-aws.outputs.registry,  env.STAGE, env.ORGANIZATION) }}
+          FLUENT_BIT_IMAGE: ${{ format('{0}/{1}-{2}/league-engine-fluent-bit:latest', steps.login-ecr-aws.outputs.registry,  env.STAGE, env.ORGANIZATION) }}
+          IMAGE_TAG: ${{ format('{0}/{1}-{2}/{3}:latest', steps.login-ecr-aws.outputs.registry, env.STAGE, env.ORGANIZATION, env.SERVICE_NAME ) }}
+          TASK_CPU: ${{ env.TASK_CPU }}
+          TASK_MEMORY: ${{ env.TASK_MEMORY }}
+      - name: 🚀 Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ format('./{0}/taskdef.rendered.json', env.SERVICE_NAME) }}
+          service: ${{ env.SERVICE_NAME }}
+          cluster: ${{ env.ECS_CLUSTER_NAME }}
+          wait-for-service-stability: true
+      - name: 📈 Set ECS service desired count
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER_NAME \
+            --service $SERVICE_NAME \
+            --desired-count $DESIRED_COUNT
