@@ -26,13 +26,11 @@ on:
         required: true
         type: string
     secrets:
-      AWS_DEV_ACCOUNT_ID:
+      AWS_PROD_ACCOUNT_ID_LASTPLAY:
         required: true
-      AWS_PROD_ACCOUNT_ID:
+      AWS_PIPELINE_ACCESS_KEY_ID_LASTPLAY:
         required: true
-      AWS_PIPELINE_ACCESS_KEY_ID:
-        required: true
-      AWS_PIPELINE_SECRET_ACCESS_KEY:
+      AWS_PIPELINE_SECRET_ACCESS_KEY_LASTPLAY:
         required: true
       PACKAGE_USERNAME:
         required: true
@@ -42,8 +40,8 @@ on:
 env:
   BUILD_SHA: ${{ github.sha }}
   ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_PIPELINE_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_PIPELINE_SECRET_ACCESS_KEY }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_PIPELINE_ACCESS_KEY_ID_LASTPLAY }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_PIPELINE_SECRET_ACCESS_KEY_LASTPLAY }}
   AWS_REGION: us-east-1
   ROLE_DURATION_SECONDS: 1200
   AWS_DEFAULT_OUTPUT: json
@@ -60,23 +58,13 @@ jobs:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
     steps:
       - uses: actions/checkout@v2
-      - name: Set DEV environment variables
-        if: github.ref == 'refs/heads/master'
-        run: |
-          echo "::set-env name=STAGE::dev"
-          echo "::set-env name=DOCKER_BUILD_TARGET::debug"
-          echo "::set-env name=ECS_CLUSTER_NAME::dev-lastplay-ecs-cluster"
-          echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_DEV_ACCOUNT_ID }}"
-          echo "::set-env name=DESIRED_COUNT::${{inputs.DEV_MIN_INSTANCES}}"
-          echo "::set-env name=TASK_CPU::${{inputs.DEV_CPU_REQUEST}}"
-          echo "::set-env name=TASK_MEMORY::${{inputs.DEV_CPU_LIMIT}}"
       - name: Set PROD environment variables
         if: github.ref == 'refs/heads/prod'
         run: |
           echo "::set-env name=STAGE::prod"
           echo "::set-env name=DOCKER_BUILD_TARGET::debug"
-          echo "::set-env name=ECS_CLUSTER_NAME::prod-lastplay-ecs-cluster"
-          echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_PROD_ACCOUNT_ID }}"
+          echo "::set-env name=ECS_CLUSTER_NAME::wetraders-prod"
+          echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_PROD_ACCOUNT_ID_LASTPLAY }}"
           echo "::set-env name=DESIRED_COUNT::${{inputs.PROD_MIN_INSTANCES}}"
           echo "::set-env name=TASK_CPU::${{inputs.PROD_CPU_REQUEST}}"
           echo "::set-env name=TASK_MEMORY::${{inputs.PROD_CPU_LIMIT}}"
@@ -97,8 +85,6 @@ jobs:
           input: ${{ format('./{0}/taskdef.json', env.SERVICE_NAME) }}
           output: ${{ format('./{0}/taskdef.rendered.json', env.SERVICE_NAME) }}
         env:
-          LOGROTATE_IMAGE: ${{ format('{0}/{1}-{2}/league-engine-logrotate:latest', steps.login-ecr-aws.outputs.registry,  env.STAGE, env.ORGANIZATION) }}
-          FLUENT_BIT_IMAGE: ${{ format('{0}/{1}-{2}/league-engine-fluent-bit:latest', steps.login-ecr-aws.outputs.registry,  env.STAGE, env.ORGANIZATION) }}
           IMAGE_TAG: ${{ format('{0}/{1}-{2}/{3}:latest', steps.login-ecr-aws.outputs.registry, env.STAGE, env.ORGANIZATION, env.SERVICE_NAME ) }}
           TASK_CPU: ${{ env.TASK_CPU }}
           TASK_MEMORY: ${{ env.TASK_MEMORY }}
