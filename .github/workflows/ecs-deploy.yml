@@ -63,7 +63,7 @@ jobs:
         run: |
           echo "::set-env name=STAGE::prod"
           echo "::set-env name=DOCKER_BUILD_TARGET::debug"
-          echo "::set-env name=ECS_CLUSTER_NAME::wetraders-prod"
+          echo "::set-env name=ECS_CLUSTER_NAME::lastplay-prod"
           echo "::set-env name=AWS_ACCOUNT_ID::${{ secrets.AWS_PROD_ACCOUNT_ID_LASTPLAY }}"
           echo "::set-env name=DESIRED_COUNT::${{inputs.PROD_MIN_INSTANCES}}"
           echo "::set-env name=TASK_CPU::${{inputs.PROD_CPU_REQUEST}}"
