@@ -85,7 +85,7 @@ jobs:
           input: ${{ format('./{0}/taskdef.json', env.SERVICE_NAME) }}
           output: ${{ format('./{0}/taskdef.rendered.json', env.SERVICE_NAME) }}
         env:
-          IMAGE_TAG: ${{ format('{0}/{1}-lastplay/{3}:latest', steps.login-ecr-aws.outputs.registry, env.STAGE, env.SERVICE_NAME ) }}
+          IMAGE_TAG: ${{ format('{0}/{1}-lastplay/{2}:latest', steps.login-ecr-aws.outputs.registry, env.STAGE, env.SERVICE_NAME ) }}
           TASK_CPU: ${{ env.TASK_CPU }}
           TASK_MEMORY: ${{ env.TASK_MEMORY }}
           SERVICE_NAME: ${{ env.SERVICE_NAME }}
