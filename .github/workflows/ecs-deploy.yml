@@ -88,6 +88,8 @@ jobs:
           IMAGE_TAG: ${{ format('{0}/{1}-{2}/{3}:latest', steps.login-ecr-aws.outputs.registry, env.STAGE, env.ORGANIZATION, env.SERVICE_NAME ) }}
           TASK_CPU: ${{ env.TASK_CPU }}
           TASK_MEMORY: ${{ env.TASK_MEMORY }}
+          SERVICE_NAME: ${{ env.SERVICE_NAME }}
+          SERVICE_PORT: ${{ env.SERVICE_PORT }}
       - name: 🚀 Deploy Amazon ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
